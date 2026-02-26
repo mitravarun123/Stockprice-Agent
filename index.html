@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Analyst — CrewAI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --bg:       #f5f5f0;
+    --surface:  #ffffff;
+    --border:   #e0e0d8;
+    --text:     #1a1a1a;
+    --muted:    #888880;
+    --green:    #1a7a4a;
+    --green-bg: #edf7f1;
+    --red:      #c0392b;
+    --accent:   #2563eb;
+    --mono:     'IBM Plex Mono', monospace;
+    --sans:     'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+  }
+  .header p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 6px;
+  }
+  .badge {
+    display: inline-block;
+    background: var(--green-bg);
+    color: var(--green);
+    border: 1px solid #b7dfc8;
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 10px;
+    font-family: var(--mono);
+  }
+
+  /* Main card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 760px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  /* Input area */
+  .input-row {
+    display: flex;
+    gap: 10px;
+  }
+  .input-box {
+    flex: 1;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 15px;
+    font-family: var(--sans);
+    outline: none;
+    transition: border-color 0.2s;
+    background: var(--bg);
+  }
+  .input-box:focus { border-color: var(--accent); }
+  .input-box::placeholder { color: var(--muted); }
+
+  .btn {
+    background: var(--text);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    font-family: var(--sans);
+    white-space: nowrap;
+  }
+  .btn:hover   { opacity: 0.85; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Quick chips */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .chip {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: var(--mono);
+    transition: all 0.15s;
+    color: var(--text);
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Status bar */
+  .status {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    margin-top: 16px;
+    font-size: 13px;
+    color: #92400e;
+  }
+  .status.show { display: flex; }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid #fde68a;
+    border-top-color: #92400e;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Agent progress */
+  .agents {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 16px;
+  }
+  .agents.show { display: flex; }
+  .agent-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: var(--bg);
+    font-size: 13px;
+    opacity: 0.4;
+    transition: opacity 0.3s;
+  }
+  .agent-row.active  { opacity: 1; background: var(--green-bg); }
+  .agent-row.done    { opacity: 0.7; }
+  .agent-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .agent-row.active .agent-dot { background: var(--green); animation: pulse 1s infinite; }
+  .agent-row.done   .agent-dot { background: var(--green); animation: none; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+  /* Result */
+  .result-card {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 760px;
+    overflow: hidden;
+  }
+  .result-card.show { display: block; }
+
+  .result-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .result-header span {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: var(--sans);
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--text); color: var(--text); }
+
+  .result-body {
+    padding: 24px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    max-height: 600px;
+    overflow-y: auto;
+    color: var(--text);
+  }
+
+  /* Scrollbar */
+  .result-body::-webkit-scrollbar { width: 6px; }
+  .result-body::-webkit-scrollbar-track { background: transparent; }
+  .result-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Footer */
+  .footer {
+    margin-top: 24px;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📈 Stock Analyst</h1>
+  <p>Multi-agent analysis powered by CrewAI + Claude</p>
+  <span class="badge">10 Agents · RAG · Free APIs</span>
+</div>
+
+<!-- Input Card -->
+<div class="card">
+  <div class="input-row">
+    <input
+      class="input-box"
+      id="queryInput"
+      type="text"
+      placeholder="e.g. Analyze Apple stock, How is TSLA doing?"
+      onkeydown="if(event.key==='Enter') runAnalysis()"
+    />
+    <button class="btn" id="analyzeBtn" onclick="runAnalysis()">Analyze →</button>
+  </div>
+
+  <div class="chips">
+    <div class="chip" onclick="setQuery('Analyze AAPL')">AAPL</div>
+    <div class="chip" onclick="setQuery('Analyze TSLA')">TSLA</div>
+    <div class="chip" onclick="setQuery('Analyze NVDA')">NVDA</div>
+    <div class="chip" onclick="setQuery('Analyze MSFT')">MSFT</div>
+    <div class="chip" onclick="setQuery('Analyze GOOGL')">GOOGL</div>
+    <div class="chip" onclick="setQuery('Analyze META')">META</div>
+  </div>
+
+  <!-- Status -->
+  <div class="status" id="status">
+    <div class="spinner"></div>
+    <span id="statusText">Starting crew...</span>
+  </div>
+
+  <!-- Agent Progress -->
+  <div class="agents" id="agentList">
+    <div class="agent-row" id="a1"><div class="agent-dot"></div>🔍 Ticker Extractor</div>
+    <div class="agent-row" id="a2"><div class="agent-dot"></div>💾 Cache Manager</div>
+    <div class="agent-row" id="a3"><div class="agent-dot"></div>💵 Price Fetcher</div>
+    <div class="agent-row" id="a4"><div class="agent-dot"></div>📰 News Researcher</div>
+    <div class="agent-row" id="a5"><div class="agent-dot"></div>📊 Technical Analyst</div>
+    <div class="agent-row" id="a6"><div class="agent-dot"></div>🧠 Knowledge Retriever</div>
+    <div class="agent-row" id="a7"><div class="agent-dot"></div>🏦 Analyst Ratings</div>
+    <div class="agent-row" id="a8"><div class="agent-dot"></div>⚠️ Risk Analyst</div>
+    <div class="agent-row" id="a9"><div class="agent-dot"></div>💡 Investment Advisor</div>
+    <div class="agent-row" id="a10"><div class="agent-dot"></div>📝 Report Writer</div>
+  </div>
+</div>
+
+<!-- Result Card -->
+<div class="result-card" id="resultCard">
+  <div class="result-header">
+    <span>Analysis Report</span>
+    <button class="copy-btn" onclick="copyResult()">Copy</button>
+  </div>
+  <div class="result-body" id="resultBody"></div>
+</div>
+
+<div class="footer">For educational purposes only · Not financial advice</div>
+
+<script>
+  const agents = ["a1","a2","a3","a4","a5","a6","a7","a8","a9","a10"];
+  let currentAgent = 0;
+  let agentTimer = null;
+
+  function setQuery(q) {
+    document.getElementById("queryInput").value = q;
+    document.getElementById("queryInput").focus();
+  }
+
+  function startAgentAnimation() {
+    currentAgent = 0;
+    agents.forEach(id => {
+      document.getElementById(id).className = "agent-row";
+    });
+    document.getElementById("agentList").className = "agents show";
+    stepAgent();
+  }
+
+  function stepAgent() {
+    if (currentAgent >= agents.length) return;
+    // mark previous done
+    if (currentAgent > 0) {
+      document.getElementById(agents[currentAgent - 1]).className = "agent-row done";
+    }
+    document.getElementById(agents[currentAgent]).className = "agent-row active";
+    currentAgent++;
+    // roughly estimate each agent takes equal share of ~60 seconds
+    agentTimer = setTimeout(stepAgent, 6000);
+  }
+
+  function stopAgentAnimation() {
+    clearTimeout(agentTimer);
+    agents.forEach(id => {
+      document.getElementById(id).className = "agent-row done";
+    });
+  }
+
+  async function runAnalysis() {
+    const query = document.getElementById("queryInput").value.trim();
+    if (!query) return;
+
+    // UI state: loading
+    document.getElementById("analyzeBtn").disabled = true;
+    document.getElementById("status").className = "status show";
+    document.getElementById("statusText").textContent = "Crew is working... this takes ~60 seconds";
+    document.getElementById("resultCard").className = "result-card";
+    startAgentAnimation();
+
+    try {
+      const resp = await fetch("/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query })
+      });
+
+      const data = await resp.json();
+
+      stopAgentAnimation();
+      document.getElementById("status").className = "status";
+      document.getElementById("agentList").className = "agents";
+
+      if (data.error) {
+        document.getElementById("resultBody").textContent = "Error: " + data.error;
+      } else {
+        document.getElementById("resultBody").textContent = data.result;
+      }
+
+      document.getElementById("resultCard").className = "result-card show";
+      document.getElementById("resultCard").scrollIntoView({ behavior: "smooth" });
+
+    } catch (e) {
+      document.getElementById("statusText").textContent = "Request failed: " + e.message;
+      stopAgentAnimation();
+    }
+
+    document.getElementById("analyzeBtn").disabled = false;
+  }
+
+  function copyResult() {
+    const text = document.getElementById("resultBody").textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.querySelector(".copy-btn");
+      btn.textContent = "Copied!";
+      setTimeout(() => btn.textContent = "Copy", 1500);
+    });
+  }
+</script>
+</body>
+</html>
